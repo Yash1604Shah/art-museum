@@ -1,17 +1,200 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Virtual Art Museum</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="stylesheet" href="style.css">
-
-  <!-- Load Three.js and PointerLockControls -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-  <script src="https://threejs.org/examples/js/controls/PointerLockControls.js"></script>
+  <style>
+    html,body{margin:0;height:100%;overflow:hidden;background:#000;font-family:sans-serif;}
+    #intro{
+      position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+      background:rgba(0,0,0,.8);color:#fff;font-size:28px;z-index:5;cursor:pointer;
+    }
+  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r152/three.min.js"></script>
 </head>
 <body>
-  <script src="main.js"></script>
+<div id="intro">Click to enter the museum</div>
+
+<script>
+/* ---------- BASIC SETUP ---------- */
+let scene, camera, renderer;
+let player, pitchObj;
+let keys = {};
+let velocity = new THREE.Vector3();
+const accel = 60;          // move speed
+const friction = 10;
+let canMove = false;
+
+/* ---------- INIT ---------- */
+function init(){
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x000000);
+
+  camera = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 0.1, 1000);
+
+  // player objects for yaw/pitch control
+  player   = new THREE.Object3D();
+  pitchObj = new THREE.Object3D();
+  pitchObj.add(camera);
+  player.add(pitchObj);
+  player.position.set(0, 1.6, 8); // start point
+  scene.add(player);
+
+  renderer = new THREE.WebGLRenderer({antialias:true});
+  renderer.setSize(innerWidth, innerHeight);
+  document.body.appendChild(renderer.domElement);
+
+  // lights
+  scene.add(new THREE.AmbientLight(0xffffff, .8));
+  const dir = new THREE.DirectionalLight(0xffffff, .6);
+  dir.position.set(5,10,5);
+  scene.add(dir);
+
+  // floor
+  const floorTex = new THREE.TextureLoader().load("https://cdn.pixabay.com/photo/2020/01/17/17/28/floor-4772000_1280.jpg");
+  floorTex.wrapS = floorTex.wrapT = THREE.RepeatWrapping;
+  floorTex.repeat.set(40,40);
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(200,200), new THREE.MeshStandardMaterial({map:floorTex}));
+  floor.rotation.x = -Math.PI/2;
+  scene.add(floor);
+
+  // walls (4 sides)
+  const wallMat = new THREE.MeshStandardMaterial({color:0x1f1f1f});
+  const wallGeom = new THREE.PlaneGeometry(60,12);
+  addWall(0,6,-30,0);
+  addWall(0,6, 30,Math.PI);
+  addWall(-30,6,0, Math.PI/2);
+  addWall( 30,6,0,-Math.PI/2);
+
+  function addWall(x,y,z,ry){
+    const w = new THREE.Mesh(wallGeom, wallMat);
+    w.position.set(x,y,z);
+    w.rotation.y = ry;
+    scene.add(w);
+  }
+
+  // simple star dome (universe feel)
+  const starGeo = new THREE.SphereGeometry(400,32,32);
+  const starMat = new THREE.MeshBasicMaterial({
+    map:new THREE.TextureLoader().load("https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/textures/planets/starfield.jpg"),
+    side:THREE.BackSide
+  });
+  const stars = new THREE.Mesh(starGeo, starMat);
+  scene.add(stars);
+
+  // frames
+  const artURLs = [
+    "https://upload.wikimedia.org/wikipedia/commons/9/9a/Claude_Monet_-_Water_Lilies_-_Google_Art_Project.jpg",
+    "https://upload.wikimedia.org/wikipedia/commons/4/42/Van_Gogh_-_Starry_Night_-_Google_Art_Project.jpg",
+    "https://upload.wikimedia.org/wikipedia/commons/e/e3/The_Scream.jpg"
+  ];
+  placeFrames(artURLs);
+
+  // events
+  window.addEventListener('resize', onResize);
+  window.addEventListener('keydown', e => { keys[e.code]=true; });
+  window.addEventListener('keyup',   e => { keys[e.code]=false; });
+  document.addEventListener('mousemove', onMouseMove);
+  document.getElementById('intro').addEventListener('click', startPointerLock);
+
+  animate();
+}
+
+/* ---------- FRAMES ---------- */
+function placeFrames(urls){
+  const loader = new THREE.TextureLoader();
+  const frameW = 3, frameH = 2;
+  const positions = [];
+
+  // around each wall
+  for(let i=-20;i<=20;i+=10){
+    positions.push({x:i,y:3,z:-29.9,ry:0});
+    positions.push({x:i,y:3,z: 29.9,ry:Math.PI});
+    positions.push({x:-29.9,y:3,z:i,ry:Math.PI/2});
+    positions.push({x: 29.9,y:3,z:i,ry:-Math.PI/2});
+  }
+
+  positions.forEach((p,i)=>{
+    // frame
+    const frame = new THREE.Mesh(
+      new THREE.BoxGeometry(frameW+0.5, frameH+0.5, 0.2),
+      new THREE.MeshStandardMaterial({color:0x6b4a2b})
+    );
+    frame.position.set(p.x,p.y,p.z);
+    frame.rotation.y = p.ry;
+    scene.add(frame);
+
+    loader.load(urls[i%urls.length], tex=>{
+      const art = new THREE.Mesh(
+        new THREE.PlaneGeometry(frameW, frameH),
+        new THREE.MeshBasicMaterial({map:tex})
+      );
+      art.position.set(p.x,p.y,p.z);
+      art.rotation.y = p.ry;
+      art.translateZ(0.11);
+      scene.add(art);
+    });
+  });
+}
+
+/* ---------- POINTER LOCK + MOUSE LOOK ---------- */
+function startPointerLock(){
+  const intro = document.getElementById('intro');
+  intro.style.display = 'none';
+
+  if (document.body.requestPointerLock) {
+    document.body.requestPointerLock();
+  }
+  canMove = true;
+}
+
+let yaw = 0, pitch = 0;
+function onMouseMove(e){
+  if (!canMove) return;
+  const movementX = e.movementX || 0;
+  const movementY = e.movementY || 0;
+
+  yaw   -= movementX * 0.002;
+  pitch -= movementY * 0.002;
+  pitch = Math.max(-Math.PI/2+0.01, Math.min(Math.PI/2-0.01, pitch));
+
+  player.rotation.y = yaw;
+  pitchObj.rotation.x = pitch;
+}
+
+/* ---------- ANIMATION LOOP ---------- */
+function animate(){
+  requestAnimationFrame(animate);
+
+  if (canMove){
+    const forward = (keys["KeyW"]||keys["ArrowUp"]) ? 1 : (keys["KeyS"]||keys["ArrowDown"]) ? -1 : 0;
+    const strafe  = (keys["KeyD"]||keys["ArrowRight"]) ? 1 : (keys["KeyA"]||keys["ArrowLeft"]) ? -1 : 0;
+
+    // acceleration in local space
+    const accelVector = new THREE.Vector3(strafe,0, -forward).normalize().multiplyScalar(accel * 0.016);
+    // rotate to player's yaw
+    accelVector.applyAxisAngle(new THREE.Vector3(0,1,0), player.rotation.y);
+
+    velocity.add(accelVector);
+    // friction
+    velocity.multiplyScalar(1 - friction * 0.016);
+
+    player.position.addScaledVector(velocity, 0.016);
+  }
+
+  renderer.render(scene, camera);
+}
+
+/* ---------- HELPERS ---------- */
+function onResize(){
+  camera.aspect = innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+}
+
+/* ---------- START ---------- */
+init();
+</script>
 </body>
 </html>
-
