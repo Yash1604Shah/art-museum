@@ -49,6 +49,7 @@ function init() {
   document.addEventListener('click', () => controls.lock(), false);
 
   const blocker = document.createElement('div');
+  blocker.id = 'intro';
   blocker.style.position = 'absolute';
   blocker.style.top = 0;
   blocker.style.left = 0;
@@ -65,8 +66,22 @@ function init() {
   blocker.style.background = 'rgba(0,0,0,0.7)';
   document.body.appendChild(blocker);
 
-  controls.addEventListener('lock', () => { blocker.style.display = 'none'; });
-  controls.addEventListener('unlock', () => { blocker.style.display = 'flex'; });
+  // Auto-hide blocker after 2 seconds
+  setTimeout(() => {
+    const intro = document.getElementById('intro');
+    if (intro) intro.remove();
+    controls.lock();
+  }, 2000);
+
+  controls.addEventListener('lock', () => {
+    const intro = document.getElementById('intro');
+    if (intro) intro.style.display = 'none';
+  });
+
+  controls.addEventListener('unlock', () => {
+    const intro = document.getElementById('intro');
+    if (intro) intro.style.display = 'flex';
+  });
 
   scene.add(controls.getObject());
 
@@ -139,5 +154,4 @@ function animate() {
   renderer.render(scene, camera);
 }
 
-init(); // Start everything
-
+init();
