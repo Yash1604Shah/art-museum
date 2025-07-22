@@ -6,63 +6,37 @@
   <title>Virtual Art Museum</title>
   <style>
     html,body{margin:0;height:100%;overflow:hidden;background:#000;font-family:sans-serif;}
-    #intro{
-      position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
-      background:rgba(0,0,0,.8);color:#fff;font-size:28px;z-index:5;cursor:pointer;
-    }
-    #hint{
-      position:fixed;top:10px;left:10px;z-index:4;color:#fff;font-size:12px;
-      background:rgba(0,0,0,.5);padding:6px 8px;border-radius:4px;display:none;
-    }
+    #hint{position:fixed;top:10px;left:10px;z-index:4;color:#fff;font-size:12px;background:rgba(0,0,0,.5);padding:6px 8px;border-radius:4px;display:none;}
   </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r152/three.min.js"></script>
 </head>
 <body>
-<div id="intro">Click to enter the museum</div>
-<div id="hint">Drag mouse to look • W A S D or arrows to move</div>
-
+<div id="hint">Drag mouse to look • W A S D / arrows to move</div>
 <script>
-let scene,camera,renderer;
-let player,pitchObj;
-let keys={},velocity=new THREE.Vector3();
-const accel=60,friction=10;
-let dragging=false,lastX=0,lastY=0,yaw=0,pitch=0,ready=false;
+let scene,camera,renderer;let player,pitchObj;let keys={},velocity=new THREE.Vector3();
+const accel=60,friction=10;let dragging=false,lastX=0,lastY=0,yaw=0,pitch=0,ready=false;
 
-/* ---------- init ---------- */
 function init(){
-  scene=new THREE.Scene();
-  scene.background=new THREE.Color(0x000000);
-
+  scene=new THREE.Scene();scene.background=new THREE.Color(0x000000);
   camera=new THREE.PerspectiveCamera(75,innerWidth/innerHeight,0.1,1000);
-  player=new THREE.Object3D();
-  pitchObj=new THREE.Object3D(); pitchObj.add(camera); player.add(pitchObj);
-  player.position.set(0,1.6,8);
-  scene.add(player);
+  player=new THREE.Object3D();pitchObj=new THREE.Object3D();pitchObj.add(camera);player.add(pitchObj);
+  player.position.set(0,1.6,8);scene.add(player);
 
-  renderer=new THREE.WebGLRenderer({antialias:true});
-  renderer.setSize(innerWidth,innerHeight);
-  document.body.appendChild(renderer.domElement);
+  renderer=new THREE.WebGLRenderer({antialias:true});renderer.setSize(innerWidth,innerHeight);document.body.appendChild(renderer.domElement);
 
-  scene.add(new THREE.AmbientLight(0xffffff,.8));
-  const dir=new THREE.DirectionalLight(0xffffff,.6); dir.position.set(5,10,5); scene.add(dir);
+  scene.add(new THREE.AmbientLight(0xffffff,.8));const dir=new THREE.DirectionalLight(0xffffff,.6);dir.position.set(5,10,5);scene.add(dir);
 
   const floorTex=new THREE.TextureLoader().load("https://cdn.pixabay.com/photo/2020/01/17/17/28/floor-4772000_1280.jpg");
-  floorTex.wrapS=floorTex.wrapT=THREE.RepeatWrapping; floorTex.repeat.set(40,40);
+  floorTex.wrapS=floorTex.wrapT=THREE.RepeatWrapping;floorTex.repeat.set(40,40);
   const floor=new THREE.Mesh(new THREE.PlaneGeometry(200,200),new THREE.MeshStandardMaterial({map:floorTex}));
-  floor.rotation.x=-Math.PI/2; scene.add(floor);
+  floor.rotation.x=-Math.PI/2;scene.add(floor);
 
-  const wallMat=new THREE.MeshStandardMaterial({color:0x1f1f1f});
-  const wallGeom=new THREE.PlaneGeometry(60,12);
-  addWall(0,6,-30,0); addWall(0,6,30,Math.PI);
-  addWall(-30,6,0,Math.PI/2); addWall(30,6,0,-Math.PI/2);
-  function addWall(x,y,z,ry){const w=new THREE.Mesh(wallGeom,wallMat);w.position.set(x,y,z);w.rotation.y=ry;scene.add(w);}
+  const wallMat=new THREE.MeshStandardMaterial({color:0x1f1f1f});const wallGeom=new THREE.PlaneGeometry(60,12);
+  addWall(0,6,-30,0);addWall(0,6,30,Math.PI);addWall(-30,6,0,Math.PI/2);addWall(30,6,0,-Math.PI/2);
+  function addWall(x,y,z,ry){const w=new THREE.Mesh(wallGeom,wallMat);w.position.set(x,y,z);w.rotation.y=ry;scene.add(w);}  
 
-  // stars
   const starGeo=new THREE.SphereGeometry(400,32,32);
-  const starMat=new THREE.MeshBasicMaterial({
-    map:new THREE.TextureLoader().load("https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/textures/planets/starfield.jpg"),
-    side:THREE.BackSide
-  });
+  const starMat=new THREE.MeshBasicMaterial({map:new THREE.TextureLoader().load("https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/textures/planets/starfield.jpg"),side:THREE.BackSide});
   scene.add(new THREE.Mesh(starGeo,starMat));
 
   buildFrames(20);
@@ -74,78 +48,36 @@ function init(){
   // drag look
   window.addEventListener('mousedown',e=>{ if(!ready)return; dragging=true; lastX=e.clientX; lastY=e.clientY; });
   window.addEventListener('mouseup',()=>dragging=false);
-  window.addEventListener('mousemove',e=>{
-    if(!dragging)return;
-    const dx=e.clientX-lastX, dy=e.clientY-lastY;
-    lastX=e.clientX; lastY=e.clientY;
-    yaw   -= dx*0.002;
-    pitch -= dy*0.002;
-    pitch=Math.max(-Math.PI/2+0.01,Math.min(Math.PI/2-0.01,pitch));
-    player.rotation.y=yaw;
-    pitchObj.rotation.x=pitch;
-  });
+  window.addEventListener('mousemove',e=>{ if(!dragging)return; const dx=e.clientX-lastX, dy=e.clientY-lastY; lastX=e.clientX; lastY=e.clientY; yaw-=dx*0.002; pitch-=dy*0.002; pitch=Math.max(-Math.PI/2+0.01,Math.min(Math.PI/2-0.01,pitch)); player.rotation.y=yaw; pitchObj.rotation.x=pitch;});
 
-  document.getElementById('intro').addEventListener('click',()=>{
-    document.getElementById('intro').style.display='none';
-    document.getElementById('hint').style.display='block';
-    ready=true;
-  });
+  // AUTO START (no click needed)
+  setTimeout(()=>{ready=true; document.getElementById('hint').style.display='block';},300);
 
   animate();
 }
 
-/* ---------- frames ---------- */
 function buildFrames(count){
-  const frameW=3, frameH=2;
-  const frameMat=new THREE.MeshStandardMaterial({color:0x6b4a2b});
-  const positions=[];
-  for(let i=-20;i<=20;i+=10){
-    positions.push({x:i,y:3,z:-29.9,ry:0});
-    positions.push({x:i,y:3,z: 29.9,ry:Math.PI});
-    positions.push({x:-29.9,y:3,z:i,ry:Math.PI/2});
-    positions.push({x: 29.9,y:3,z:i,ry:-Math.PI/2});
-  }
-  const arts=[
-    "https://upload.wikimedia.org/wikipedia/commons/9/9a/Claude_Monet_-_Water_Lilies_-_Google_Art_Project.jpg",
-    "https://upload.wikimedia.org/wikipedia/commons/4/42/Van_Gogh_-_Starry_Night_-_Google_Art_Project.jpg",
-    "https://upload.wikimedia.org/wikipedia/commons/e/e3/The_Scream.jpg"
-  ];
+  const frameW=3,frameH=2;const frameMat=new THREE.MeshStandardMaterial({color:0x6b4a2b});
+  const positions=[];for(let i=-20;i<=20;i+=10){positions.push({x:i,y:3,z:-29.9,ry:0});positions.push({x:i,y:3,z:29.9,ry:Math.PI});positions.push({x:-29.9,y:3,z:i,ry:Math.PI/2});positions.push({x:29.9,y:3,z:i,ry:-Math.PI/2});}
+  const arts=["https://upload.wikimedia.org/wikipedia/commons/9/9a/Claude_Monet_-_Water_Lilies_-_Google_Art_Project.jpg","https://upload.wikimedia.org/wikipedia/commons/4/42/Van_Gogh_-_Starry_Night_-_Google_Art_Project.jpg","https://upload.wikimedia.org/wikipedia/commons/e/e3/The_Scream.jpg"];
   const loader=new THREE.TextureLoader();
-  positions.slice(0,count).forEach((p,i)=>{
-    const frame=new THREE.Mesh(new THREE.BoxGeometry(frameW+0.5,frameH+0.5,0.2),frameMat);
-    frame.position.set(p.x,p.y,p.z); frame.rotation.y=p.ry; scene.add(frame);
-
-    loader.load(arts[i%arts.length],tex=>{
-      const art=new THREE.Mesh(new THREE.PlaneGeometry(frameW,frameH),new THREE.MeshBasicMaterial({map:tex}));
-      art.position.set(p.x,p.y,p.z); art.rotation.y=p.ry; art.translateZ(0.11); scene.add(art);
-    });
-  });
+  positions.slice(0,count).forEach((p,i)=>{const frame=new THREE.Mesh(new THREE.BoxGeometry(frameW+0.5,frameH+0.5,0.2),frameMat);frame.position.set(p.x,p.y,p.z);frame.rotation.y=p.ry;scene.add(frame);loader.load(arts[i%arts.length],tex=>{const art=new THREE.Mesh(new THREE.PlaneGeometry(frameW,frameH),new THREE.MeshBasicMaterial({map:tex}));art.position.set(p.x,p.y,p.z);art.rotation.y=p.ry;art.translateZ(0.11);scene.add(art);});});
 }
 
-/* ---------- loop ---------- */
 function animate(){
   requestAnimationFrame(animate);
-
   if(ready){
-    const f=(keys["KeyW"]||keys["ArrowUp"])?1:(keys["KeyS"]||keys["ArrowDown"])?-1:0;
-    const s=(keys["KeyD"]||keys["ArrowRight"])?1:(keys["KeyA"]||keys["ArrowLeft"])?-1:0;
-
+    const f=(keys["KeyW"]||keys["ArrowUp"]) ? 1 : (keys["KeyS"]||keys["ArrowDown"]) ? -1 : 0;
+    const s=(keys["KeyD"]||keys["ArrowRight"]) ? 1 : (keys["KeyA"]||keys["ArrowLeft"]) ? -1 : 0;
     const aVec=new THREE.Vector3(s,0,-f).normalize().multiplyScalar(accel*0.016);
     aVec.applyAxisAngle(new THREE.Vector3(0,1,0),player.rotation.y);
-    velocity.add(aVec);
-    velocity.multiplyScalar(1 - friction*0.016);
+    velocity.add(aVec); velocity.multiplyScalar(1 - friction*0.016);
     player.position.addScaledVector(velocity,0.016);
   }
-
   renderer.render(scene,camera);
 }
 
-/* ---------- helpers ---------- */
-function onResize(){
-  camera.aspect=innerWidth/innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(innerWidth,innerHeight);
-}
+function onResize(){camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);} 
 
 init();
 </script>
